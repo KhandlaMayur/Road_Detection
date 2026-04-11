@@ -1,74 +1,47 @@
 # =========================
 # IMPORT LIBRARIES
 # =========================
-import os
+from flask import Flask, render_template, request, jsonify
 import cv2
-import pandas as pd
+import numpy as np
+import base64
+import os
 from ultralytics import YOLO
 
-# =========================
-# PATH SETTINGS
-# =========================
-DATASET_PATH = "dataset"
-TEST_IMAGES_PATH = "dataset/test/images"
-RANDOM_IMAGE_PATH = "random_images/test3.jpg"
+app = Flask(__name__)
 
-OUTPUT_CSV = "outputs/dataset_report.csv"
-OUTPUT_IMAGE = "outputs/random_output.jpg"
-
+# =========================
+# MODEL PATH
+# =========================
 BEST_MODEL_PATH = "runs/detect/train/weights/best.pt"
 
 # =========================
-# CREATE data.yaml
-# =========================
-yaml_content = f"""
-path: {DATASET_PATH}
-train: train/images
-val: val/images
-test: test/images
-
-names:
-  0: crack
-  1: pothole
-"""
-
-with open("data.yaml", "w") as f:
-    f.write(yaml_content)
-
-# =========================
-# CREATE OUTPUT FOLDER
-# =========================
-os.makedirs("outputs", exist_ok=True)
-
-# =========================
-# TRAIN MODEL (ONLY FIRST TIME)
+# TRAIN MODEL (IF NOT EXISTS)
 # =========================
 if not os.path.exists(BEST_MODEL_PATH):
-    print("Training Model...")
+    print(" Training Model (YOLOv8n)...")
 
-    model = YOLO("yolov8n.pt")
+    model = YOLO("yolov8n.pt")   #  using nano model
 
     model.train(
         data="data.yaml",
-        epochs=20,
-        imgsz=416,
-        batch=8,
-        device="cpu",
+        epochs=35,
+        imgsz=640,
+        batch=8,        # nano supports higher batch
+        device="cpu",   # use 0 if GPU
+        patience=20,
         name="train",
         exist_ok=True
     )
 
-    print("Training Completed!")
+    print(" Training Completed!")
+
 else:
-    print("Model already trained. Skipping training...")
+    print("⚡ Model already trained. Loading model...")
+    model = YOLO(BEST_MODEL_PATH)
 
 # =========================
-# LOAD MODEL
-# =========================
-model = YOLO(BEST_MODEL_PATH)
-
-# =========================
-# ADVANCED ANALYSIS FUNCTION
+# ANALYSIS FUNCTION
 # =========================
 def analyze(results, image_shape):
     boxes = results[0].boxes
@@ -76,9 +49,8 @@ def analyze(results, image_shape):
 
     potholes = 0
     cracks = 0
-    damage_types = set()
+    total_area = 0
 
-    total_damage_area = 0
     img_area = image_shape[0] * image_shape[1]
 
     for box in boxes:
@@ -87,77 +59,80 @@ def analyze(results, image_shape):
 
         x1, y1, x2, y2 = box.xyxy[0].tolist()
         area = (x2 - x1) * (y2 - y1)
-        total_damage_area += area
+        total_area += area
 
-        # Count types
         if label == "pothole":
             potholes += 1
-            damage_types.add("Pothole")
-        else:
+        elif label == "crack":
             cracks += 1
-            damage_types.add("Crack")
+
+    damage_percentage = float((total_area / img_area) * 100) if img_area > 0 else 0
 
     # =========================
-    # DAMAGE PERCENTAGE
+    # NO DAMAGE CONDITION
     # =========================
-    damage_percentage = float((total_damage_area / img_area) * 100) if img_area > 0 else 0
+    if potholes == 0 and cracks == 0:
+        return {
+            "potholes": 0,
+            "cracks": 0,
+            "damage_types": "None",
+            "damage_percentage": 0,
+            "severity": "Low",
+            "risk": "Low",
+            "labor": 0,
+            "days": 0,
+            "material_cost": 0,
+            "total_cost": 0,
+            "machine": "No",
+            "machine_type": "No",
+            "decision": "No urgent repair"
+        }
 
     # =========================
-    # SEVERITY CLASSIFICATION
+    # SEVERITY LOGIC
     # =========================
     if damage_percentage <= 20:
         severity = "Low"
-        cost_range = (50, 150)
-        labor = "2-3"
+        risk = "Low"
+        days = 2
+        labor_workers = 3
         machine = "No"
         machine_type = "Crack Sealing Machine"
         decision = "No urgent repair"
-        risk = "Low"
+        material_cost = 200
 
     elif damage_percentage <= 50:
         severity = "Medium"
-        cost_range = (150, 400)
-        labor = "4-6"
+        risk = "Moderate"
+        days = 4
+        labor_workers = 5
         machine = "Yes"
         machine_type = "Patching Machine + Roller"
         decision = "Schedule maintenance"
-        risk = "Moderate"
+        material_cost = 800
 
-    elif damage_percentage <= 80:
+    else:
         severity = "High"
-        cost_range = (400, 1000)
-        labor = "6-10"
+        risk = "High"
+        days = 7
+        labor_workers = 8
         machine = "Yes"
         machine_type = "Asphalt Paver + Roller"
         decision = "Immediate repair required"
-        risk = "High"
-
-    else:
-        severity = "Critical"
-        cost_range = (1000, 2500)
-        labor = "10-20"
-        machine = "Yes"
-        machine_type = "Milling Machine + Paver + Compactor"
-        decision = "Road reconstruction required"
-        risk = "Dangerous"
+        material_cost = 2000
 
     # =========================
-    # COST ESTIMATION
+    # COST CALCULATION
     # =========================
-    avg_cost_per_m2 = sum(cost_range) / 2
-    estimated_cost = total_damage_area * avg_cost_per_m2 * 0.0001  # scale factor
+    labor_charge_per_day = 500
+    total_labor_cost = labor_workers * labor_charge_per_day * days
+    total_cost = total_labor_cost + material_cost
 
-    # =========================
-    # TIME ESTIMATION
-    # =========================
-    if severity == "Low":
-        time_required = "1-2 days"
-    elif severity == "Medium":
-        time_required = "2-4 days"
-    elif severity == "High":
-        time_required = "4-7 days"
-    else:
-        time_required = "1-2 weeks"
+    damage_types = []
+    if potholes > 0:
+        damage_types.append("Pothole")
+    if cracks > 0:
+        damage_types.append("Crack")
 
     return {
         "potholes": potholes,
@@ -166,47 +141,47 @@ def analyze(results, image_shape):
         "damage_percentage": round(damage_percentage, 2),
         "severity": severity,
         "risk": risk,
-        "cost": round(estimated_cost, 2),
-        "labor": labor,
+        "labor": labor_workers,
+        "days": days,
+        "material_cost": material_cost,
+        "total_cost": total_cost,
         "machine": machine,
         "machine_type": machine_type,
-        "decision": decision,
-        "time": time_required
+        "decision": decision
     }
 
 # =========================
-# RANDOM IMAGE DETECTION
+# HOME ROUTE
 # =========================
-print("\nProcessing Random Image...")
-
-img = cv2.imread(RANDOM_IMAGE_PATH)
-results = model(RANDOM_IMAGE_PATH, conf=0.25)
-
-for r in results:
-    output_img = r.plot()
-
-cv2.imwrite(OUTPUT_IMAGE, output_img)
-
-report = analyze(results, img.shape)
+@app.route("/")
+def home():
+    return render_template("index.html")
 
 # =========================
-# FINAL STRUCTURED REPORT
+# PREDICTION API
 # =========================
-print("\n===== ROAD DAMAGE REPORT =====\n")
+@app.route("/predict", methods=["POST"])
+def predict():
+    file = request.files["image"]
 
-print(f"Damage Type: {report['damage_types']}")
-print(f"Number of Potholes: {report['potholes']}")
-print(f"Number of Cracks: {report['cracks']}")
-print(f"Damage Percentage: {report['damage_percentage']}%")
-print(f"Severity: {report['severity']}")
-print(f"Risk Level: {report['risk']}")
+    img_bytes = file.read()
+    npimg = np.frombuffer(img_bytes, np.uint8)
+    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
 
-print(f"\nEstimated Cost: ₹{report['cost']}")
-print(f"Labor Required: {report['labor']} workers")
-print(f"Time Required: {report['time']}")
+    results = model(img)
 
-print(f"\nMachine Required: {report['machine']}")
-print(f"Machine Type: {report['machine_type']}")
+    output_img = results[0].plot()
 
-print(f"\nFinal Decision: {report['decision']}")
-print(f"\nOutput Image Saved at: {OUTPUT_IMAGE}")
+    _, buffer = cv2.imencode('.jpg', output_img)
+    img_base64 = base64.b64encode(buffer).decode('utf-8')
+
+    report = analyze(results, img.shape)
+    report["image"] = img_base64
+
+    return jsonify(report)
+
+# =========================
+# RUN SERVER
+# =========================
+if __name__ == "__main__":
+    app.run(debug=True)

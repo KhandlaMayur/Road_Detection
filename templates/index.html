@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>AI Road Detection</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: linear-gradient(135deg, #0f2027, #2c5364);
+    color: white;
+    text-align: center;
+}
+
+.container {
+    width: 80%;
+    margin: auto;
+    padding: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    background: #00c6ff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.report {
+    text-align: left;
+    background: rgba(255,255,255,0.1);
+    padding: 15px;
+    margin-top: 20px;
+    border-radius: 10px;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+    <h1>🚧 AI Road Damage Detection</h1>
+
+    <input type="file" id="imageInput"><br><br>
+    <button onclick="uploadImage()">Analyze</button>
+
+    <br><br>
+    <img id="output" width="400">
+
+    <div class="report" id="report"></div>
+</div>
+
+<script>
+async function uploadImage() {
+    const file = document.getElementById("imageInput").files[0];
+
+    if (!file) {
+        alert("Select image");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    document.getElementById("report").innerHTML = "Processing...";
+
+    const res = await fetch("/predict", {
+        method: "POST",
+        body: formData
+    });
+
+    const data = await res.json();
+
+    document.getElementById("output").src =
+        "data:image/jpeg;base64," + data.image;
+
+    //  NO DAMAGE CASE
+    if (data.potholes == 0 && data.cracks == 0) {
+        document.getElementById("report").innerHTML = `
+        <h3>No Damage Detected</h3>
+        <p>Severity: Low</p>
+        <p>Risk Level: Low</p>
+        <p>Estimated Cost: ₹0</p>
+        <p>Labor Required: 0</p>
+        <p>Time Required: 0</p>
+        <p>Machine Required: No</p>
+        <p>Machine Type: No</p>
+        <p>Final Decision: No urgent repair</p>
+        `;
+        return;
+    }
+
+    document.getElementById("report").innerHTML = `
+        <h3>Road Report</h3>
+        <p>Damage Type: ${data.damage_types}</p>
+        <p>Potholes: ${data.potholes}</p>
+        <p>Cracks: ${data.cracks}</p>
+        <p>Damage %: ${data.damage_percentage}%</p>
+        <p>Severity: ${data.severity}</p>
+        <p>Risk: ${data.risk}</p>
+
+        <p><b>Labor:</b> ${data.labor} workers</p>
+        <p><b>Days:</b> ${data.days}</p>
+        <p><b>Material Cost:</b> ₹${data.material_cost}</p>
+        <p><b>Total Cost:</b> ₹${data.total_cost}</p>
+
+        <p>Machine: ${data.machine}</p>
+        <p>Machine Type: ${data.machine_type}</p>
+
+        <p><b>Final Decision:</b> ${data.decision}</p>
+    `;
+}
+</script>
+
+</body>
+</html>
