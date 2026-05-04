@@ -202,46 +202,82 @@ def home():
 # =========================
 @app.route("/predict", methods=["POST"])
 def predict():
-    file = request.files["image"]
+    try:
+        print("[DEBUG] Prediction request received")
+        
+        # Check if file exists
+        if "image" not in request.files:
+            print("[ERROR] No image file in request")
+            return jsonify({"error": "No image file provided"}), 400
+        
+        file = request.files["image"]
+        print(f"[DEBUG] File received: {file.filename}")
 
-    img_bytes = file.read()
-    npimg = np.frombuffer(img_bytes, np.uint8)
-    img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+        # Read and decode image
+        img_bytes = file.read()
+        print(f"[DEBUG] Image bytes: {len(img_bytes)}")
+        
+        npimg = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
+        
+        if img is None:
+            print("[ERROR] Failed to decode image")
+            return jsonify({"error": "Failed to decode image. Invalid format."}), 400
+        
+        print(f"[DEBUG] Image shape: {img.shape}")
 
-    results = model(img)
+        # Run model inference
+        print("[DEBUG] Running model inference...")
+        results = model(img)
+        print("[DEBUG] Model inference completed")
 
-    output_img = results[0].plot()
+        output_img = results[0].plot()
+        print("[DEBUG] Output image plotted")
 
-    # =========================
-    # SAVE OUTPUT LOGIC (ADDED)
-    # =========================
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        # =========================
+        # SAVE OUTPUT LOGIC
+        # =========================
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
-    input_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_input.jpg")
-    output_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_output.jpg")
-    report_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_report.json")
+        input_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_input.jpg")
+        output_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_output.jpg")
+        report_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_report.json")
 
-    # Save original image
-    cv2.imwrite(input_path, img)
+        # Save original image
+        cv2.imwrite(input_path, img)
+        print(f"[DEBUG] Saved input image: {input_path}")
 
-    # Save detected image
-    cv2.imwrite(output_path, output_img)
+        # Save detected image
+        cv2.imwrite(output_path, output_img)
+        print(f"[DEBUG] Saved output image: {output_path}")
 
-    # Encode image for frontend
-    _, buffer = cv2.imencode('.jpg', output_img)
-    img_base64 = base64.b64encode(buffer).decode('utf-8')
+        # Encode image for frontend
+        _, buffer = cv2.imencode('.jpg', output_img)
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
+        print(f"[DEBUG] Image encoded to base64: {len(img_base64)} chars")
 
-    report = analyze(results, img.shape)
-    report["image"] = img_base64
+        report = analyze(results, img.shape)
+        report["image"] = img_base64
+        print(f"[DEBUG] Report generated: {report}")
 
-    # Save JSON report
-    with open(report_path, "w") as f:
-        json.dump(report, f, indent=4)
+        # Save JSON report
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=4)
+        print(f"[DEBUG] Report saved: {report_path}")
 
-    return jsonify(report)
+        print("[DEBUG] Returning response")
+        return jsonify(report)
+        
+    except Exception as e:
+        print(f"[ERROR] Exception in predict: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 # =========================
 # RUN SERVER
 # =========================
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    debug = False
+    app.run(host="0.0.0.0", port=port, debug=debug)
