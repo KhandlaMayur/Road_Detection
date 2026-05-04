@@ -1,0 +1,16 @@
+{
+    "potholes": 0,
+    "cracks": 0,
+    "damage_types": "None",
+    "damage_percentage": 0,
+    "severity": "Low",
+    "risk": "Low",
+    "labor": 0,
+    "days": 0,
+    "material_cost": 0,
+    "total_cost": 0,
+    "machine": "No",
+    "machine_type": "No",
+    "decision": "No urgent repair",
+    "timestamp": "20260504_222027_793504"
+}
