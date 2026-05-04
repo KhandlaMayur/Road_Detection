@@ -89,44 +89,89 @@ def analyze(results, image_shape):
         }
 
     # =========================
-    # SEVERITY LOGIC
+    # ADVANCED DAMAGE ANALYSIS
     # =========================
-    if damage_percentage <= 20:
+    avg_damage_area = total_area / (potholes + cracks) if (potholes + cracks) > 0 else 0
+
+    # Normalize area (based on image size)
+    area_ratio = total_area / img_area
+
+    # =========================
+    # DYNAMIC SEVERITY BASED ON SIZE + COUNT
+    # =========================
+    if area_ratio < 0.05 and (potholes + cracks) <= 2:
         severity = "Low"
         risk = "Low"
-        days = 2
-        labor_workers = 3
-        machine = "No"
-        machine_type = "Crack Sealing Machine"
-        decision = "No urgent repair"
-        material_cost = 200
 
-    elif damage_percentage <= 50:
+    elif area_ratio < 0.20 and (potholes + cracks) <= 5:
         severity = "Medium"
         risk = "Moderate"
-        days = 4
-        labor_workers = 5
-        machine = "Yes"
-        machine_type = "Patching Machine + Roller"
-        decision = "Schedule maintenance"
-        material_cost = 800
 
     else:
         severity = "High"
         risk = "High"
-        days = 7
-        labor_workers = 8
-        machine = "Yes"
-        machine_type = "Asphalt Paver + Roller"
-        decision = "Immediate repair required"
-        material_cost = 2000
 
     # =========================
-    # COST CALCULATION
+    # WORKERS, DAYS, MACHINES BASED ON DAMAGE
     # =========================
-    labor_charge_per_day = 500
+    base_workers = 2
+    base_days = 1
+
+    # Increase workers and days based on count and size
+    labor_workers = base_workers + int((potholes * 0.5) + (cracks * 0.5))
+    days = base_days + int((area_ratio * 5) + (potholes * 0.5) + (cracks * 0.3))
+
+    # Cap minimum values
+    labor_workers = max(2, labor_workers)
+    days = max(1, days)
+
+    # =========================
+    # MACHINE SELECTION LOGIC
+    # =========================
+    if severity == "Low":
+        machine = "No"
+        machine_type = "Manual Crack Sealing Tools"
+
+    elif severity == "Medium":
+        machine = "Yes"
+        machine_type = "Patching Machine + Roller"
+
+    else:
+        machine = "Yes"
+        machine_type = "Asphalt Paver + Roller + Compactor"
+
+    # =========================
+    # MATERIAL COST BASED ON DAMAGE SIZE
+    # =========================
+    material_rate = 0.05  # cost per pixel area (adjustable)
+
+    material_cost = int(total_area * material_rate)
+
+    # Minimum cost safety
+    material_cost = max(material_cost, 200)
+
+    # =========================
+    # LABOR COST
+    # =========================
+    labor_charge_per_day = 300
     total_labor_cost = labor_workers * labor_charge_per_day * days
+
+    # =========================
+    # FINAL COST
+    # =========================
     total_cost = total_labor_cost + material_cost
+
+    # =========================
+    # FINAL DECISION
+    # =========================
+    if severity == "Low":
+        decision = "No urgent repair"
+
+    elif severity == "Medium":
+        decision = "Schedule maintenance"
+
+    else:
+        decision = "Immediate repair required"
 
     damage_types = []
     if potholes > 0:
