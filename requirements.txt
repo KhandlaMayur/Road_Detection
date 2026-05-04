@@ -1,5 +1,0 @@
-Flask>=2.0
-ultralytics
-opencv-python-headless
-numpy
-gunicorn
