@@ -24,29 +24,16 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 BEST_MODEL_PATH = "runs/detect/train/weights/best.pt"
 
 # =========================
-# TRAIN MODEL (IF NOT EXISTS)
+# LOAD MODEL (FALLBACK STRATEGY)
 # =========================
-if not os.path.exists(BEST_MODEL_PATH):
-    print(" Training Model (YOLOv8n)...")
-
-    model = YOLO("yolov8n.pt")   #  using nano model
-
-    model.train(
-        data="data.yaml",
-        epochs=35,
-        imgsz=640,
-        batch=8,        # nano supports higher batch
-        device="cpu",   # use 0 if GPU
-        patience=20,
-        name="train",
-        exist_ok=True
-    )
-
-    print(" Training Completed!")
-
-else:
-    print("⚡ Model already trained. Loading model...")
+print("🔍 Checking for trained model...")
+if os.path.exists(BEST_MODEL_PATH):
+    print("⚡ Loading trained model: best.pt")
     model = YOLO(BEST_MODEL_PATH)
+else:
+    print("⚠️  Trained model not found. Using pre-trained YOLOv8n...")
+    print("   (Download best.pt to runs/detect/train/weights/ for better accuracy)")
+    model = YOLO("yolov8n.pt")  # Fallback to pre-trained nano model
 
 # =========================
 # ANALYSIS FUNCTION
