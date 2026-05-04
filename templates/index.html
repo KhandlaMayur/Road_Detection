@@ -1,116 +1,575 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>AI Road Detection</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Road Damage Detection</title>
+    <style>
+        :root {
+            --primary: #00c6ff;
+            --secondary: #0072ff;
+            --accent: #ff6b6b;
+            --success: #4ecdc4;
+            --warning: #ffa726;
+            --danger: #ff5252;
+            --dark: #0f2027;
+            --light: #ffffff;
+            --glass: rgba(255, 255, 255, 0.1);
+            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --border-radius: 15px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-<style>
-body {
-    font-family: Arial;
-    background: linear-gradient(135deg, #0f2027, #2c5364);
-    color: white;
-    text-align: center;
-}
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-.container {
-    width: 80%;
-    margin: auto;
-    padding: 20px;
-}
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--dark), #2c5364, #203a43);
+            background-attachment: fixed;
+            color: var(--light);
+            min-height: 100vh;
+            overflow-x: hidden;
+            animation: bgShift 20s ease-in-out infinite alternate;
+        }
 
-button {
-    padding: 10px 20px;
-    background: #00c6ff;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
+        @keyframes bgShift {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 100% 50%; }
+        }
 
-.report {
-    text-align: left;
-    background: rgba(255,255,255,0.1);
-    padding: 15px;
-    margin-top: 20px;
-    border-radius: 10px;
-}
-</style>
+        .container {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 60px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 30px;
+            min-height: 100vh;
+        }
 
+        .upload-section,
+        .analysis-section {
+            width: 100%;
+            max-width: 780px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0, 198, 255, 0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            animation: fadeIn 1.5s ease-out 0.5s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .upload-section {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+            animation: slideInLeft 1s ease-out 0.2s both;
+        }
+
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .upload-section:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .upload-area {
+            border: 2px dashed rgba(255, 255, 255, 0.5);
+            border-radius: var(--border-radius);
+            padding: 40px 20px;
+            text-align: center;
+            transition: var(--transition);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-area::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 198, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .upload-area:hover::before {
+            left: 100%;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary);
+            background: rgba(0, 198, 255, 0.05);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--primary);
+            background: rgba(0, 198, 255, 0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .upload-subtext {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        #imageInput {
+            display: none;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: var(--light);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.3);
+            margin-top: 20px;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 198, 255, 0.5);
+        }
+
+        .analyze-btn:active {
+            transform: translateY(0);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .analysis-section {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--border-radius);
+            padding: 30px;
+            box-shadow: var(--shadow);
+            animation: slideInRight 1s ease-out 0.4s both;
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .result-image {
+            max-width: 100%;
+            height: auto;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            margin-bottom: 20px;
+            transition: var(--transition);
+        }
+
+        .result-image:hover {
+            transform: scale(1.02);
+        }
+
+        .report {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            margin-top: 20px;
+            animation: fadeIn 1s ease-out 0.6s both;
+        }
+
+        .report h3 {
+            color: var(--primary);
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .report p {
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .report strong {
+            color: var(--success);
+        }
+
+        .severity-low { color: var(--success); }
+        .severity-medium { color: var(--warning); }
+        .severity-high { color: var(--danger); }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 32, 39, 0.9);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: var(--light);
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0%;
+            animation: progress 3s ease-out forwards;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            70% { width: 90%; }
+            100% { width: 100%; }
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            font-weight: 500;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 40px 16px;
+                gap: 24px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .upload-section, .analysis-section {
+                padding: 20px;
+            }
+
+            .upload-area {
+                padding: 30px 15px;
+            }
+
+            .analyze-btn {
+                padding: 12px 25px;
+                font-size: 1rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.8rem;
+            }
+
+            .upload-text {
+                font-size: 1rem;
+            }
+
+            .report p {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+        }
+    </style>
 </head>
-
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>AI Road Damage Detection</h1>
+            <p>Advanced real-time analysis powered by YOLOv8</p>
+        </div>
 
-<div class="container">
-    <h1>🚧 AI Road Damage Detection</h1>
+        <div class="upload-section">
+            <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageInput').click()">
+                <span class="upload-icon">📷</span>
+                <div class="upload-text">Drop your road image here or click to browse</div>
+                <div class="upload-subtext">Supported formats: JPG, PNG, JPEG</div>
+            </div>
+            <input type="file" id="imageInput" accept="image/*">
+            <button class="analyze-btn" id="analyzeBtn" onclick="uploadImage()">🚀 Analyze Road</button>
+        </div>
 
-    <input type="file" id="imageInput"><br><br>
-    <button onclick="uploadImage()">Analyze</button>
+        <div class="analysis-section">
+            <img id="output" class="result-image" style="display: none;" alt="Analysis Result">
+            <div class="report" id="report" style="display: none;"></div>
+        </div>
+    </div>
 
-    <br><br>
-    <img id="output" width="400">
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+            <div class="loading-text pulse">AI Analyzing Road Damage...</div>
+        </div>
+    </div>
 
-    <div class="report" id="report"></div>
-</div>
+    <script>
+        // Enhanced drag and drop functionality
+        const uploadArea = document.getElementById('uploadArea');
+        const imageInput = document.getElementById('imageInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const outputImg = document.getElementById('output');
+        const reportDiv = document.getElementById('report');
 
-<script>
-async function uploadImage() {
-    const file = document.getElementById("imageInput").files[0];
+        // Drag and drop events
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
 
-    if (!file) {
-        alert("Select image");
-        return;
-    }
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
 
-    const formData = new FormData();
-    formData.append("image", file);
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
 
-    document.getElementById("report").innerHTML = "Processing...";
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
 
-    const res = await fetch("/predict", {
-        method: "POST",
-        body: formData
-    });
+        function highlight(e) {
+            uploadArea.classList.add('dragover');
+        }
 
-    const data = await res.json();
+        function unhighlight(e) {
+            uploadArea.classList.remove('dragover');
+        }
 
-    document.getElementById("output").src =
-        "data:image/jpeg;base64," + data.image;
+        uploadArea.addEventListener('drop', handleDrop, false);
 
-    //  NO DAMAGE CASE
-    if (data.potholes == 0 && data.cracks == 0) {
-        document.getElementById("report").innerHTML = `
-        <h3>No Damage Detected</h3>
-        <p>Severity: Low</p>
-        <p>Risk Level: Low</p>
-        <p>Estimated Cost: ₹0</p>
-        <p>Labor Required: 0</p>
-        <p>Time Required: 0</p>
-        <p>Machine Required: No</p>
-        <p>Machine Type: No</p>
-        <p>Final Decision: No urgent repair</p>
-        `;
-        return;
-    }
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
 
-    document.getElementById("report").innerHTML = `
-        <h3>Road Report</h3>
-        <p>Damage Type: ${data.damage_types}</p>
-        <p>Potholes: ${data.potholes}</p>
-        <p>Cracks: ${data.cracks}</p>
-        <p>Damage %: ${data.damage_percentage}%</p>
-        <p>Severity: ${data.severity}</p>
-        <p>Risk: ${data.risk}</p>
+        function handleFiles(files) {
+            if (files.length > 0) {
+                imageInput.files = files;
+                uploadArea.innerHTML = `
+                    <span class="upload-icon">✅</span>
+                    <div class="upload-text">${files[0].name}</div>
+                    <div class="upload-subtext">File selected successfully</div>
+                `;
+            }
+        }
 
-        <p><b>Labor:</b> ${data.labor} workers</p>
-        <p><b>Days:</b> ${data.days}</p>
-        <p><b>Material Cost:</b> ₹${data.material_cost}</p>
-        <p><b>Total Cost:</b> ₹${data.total_cost}</p>
+        // Enhanced upload function
+        async function uploadImage() {
+            const file = imageInput.files[0];
 
-        <p>Machine: ${data.machine}</p>
-        <p>Machine Type: ${data.machine_type}</p>
+            if (!file) {
+                alert("Please select an image first!");
+                return;
+            }
 
-        <p><b>Final Decision:</b> ${data.decision}</p>
-    `;
-}
-</script>
+            // Show loading overlay
+            loadingOverlay.style.display = 'flex';
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analyzing...';
 
+            // Reset previous results
+            outputImg.style.display = 'none';
+            reportDiv.style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append("image", file);
+
+                const res = await fetch("/predict", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const data = await res.json();
+
+                // Hide loading
+                loadingOverlay.style.display = 'none';
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = '🚀 Analyze Road';
+
+                // Show results with animation
+                outputImg.src = "data:image/jpeg;base64," + data.image;
+                outputImg.style.display = 'block';
+                outputImg.style.animation = 'fadeIn 0.5s ease-out';
+
+                reportDiv.style.display = 'block';
+                reportDiv.style.animation = 'fadeIn 0.5s ease-out 0.2s both';
+
+                // Enhanced report display
+                if (data.potholes == 0 && data.cracks == 0) {
+                    reportDiv.innerHTML = `
+                        <h3>✅ No Damage Detected</h3>
+                        <p><strong>Severity:</strong> <span class="severity-low">Low</span></p>
+                        <p><strong>Risk Level:</strong> Low</p>
+                        <p><strong>Estimated Cost:</strong> ₹0</p>
+                        <p><strong>Labor Required:</strong> 0</p>
+                        <p><strong>Time Required:</strong> 0 days</p>
+                        <p><strong>Machine Required:</strong> No</p>
+                        <p><strong>Machine Type:</strong> N/A</p>
+                        <p><strong>Final Decision:</strong> No urgent repair</p>
+                    `;
+                } else {
+                    const severityClass = `severity-${data.severity.toLowerCase()}`;
+                    reportDiv.innerHTML = `
+                        <h3>🚨 Road Damage Report</h3>
+                        <p><strong>Damage Type:</strong> ${data.damage_types}</p>
+                        <p><strong>Potholes:</strong> ${data.potholes}</p>
+                        <p><strong>Cracks:</strong> ${data.cracks}</p>
+                        <p><strong>Damage Percentage:</strong> ${data.damage_percentage}%</p>
+                        <p><strong>Severity:</strong> <span class="${severityClass}">${data.severity}</span></p>
+                        <p><strong>Risk Level:</strong> ${data.risk}</p>
+                        <p><strong>Labor Required:</strong> ${data.labor} workers</p>
+                        <p><strong>Time Required:</strong> ${data.days} days</p>
+                        <p><strong>Material Cost:</strong> ₹${data.material_cost}</p>
+                        <p><strong>Total Cost:</strong> ₹${data.total_cost}</p>
+                        <p><strong>Machine Required:</strong> ${data.machine}</p>
+                        <p><strong>Machine Type:</strong> ${data.machine_type}</p>
+                        <p><strong>Final Decision:</strong> ${data.decision}</p>
+                    `;
+                }
+            } catch (error) {
+                loadingOverlay.style.display = 'none';
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = '🚀 Analyze Road';
+                alert('Error analyzing image. Please try again.');
+                console.error('Upload error:', error);
+            }
+        }
+
+        // File input change handler
+        imageInput.addEventListener('change', function(e) {
+            if (e.target.files.length > 0) {
+                uploadArea.innerHTML = `
+                    <span class="upload-icon">✅</span>
+                    <div class="upload-text">${e.target.files[0].name}</div>
+                    <div class="upload-subtext">File selected successfully</div>
+                `;
+            }
+        });
+    </script>
 </body>
 </html>
