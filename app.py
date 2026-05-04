@@ -6,9 +6,17 @@ import cv2
 import numpy as np
 import base64
 import os
+import json
+from datetime import datetime
 from ultralytics import YOLO
 
 app = Flask(__name__)
+
+# =========================
+# OUTPUT FOLDER
+# =========================
+OUTPUT_FOLDER = "outputs"
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 # =========================
 # MODEL PATH
@@ -122,7 +130,7 @@ def analyze(results, image_shape):
     days = base_days + int((area_ratio * 5) + (potholes * 0.5) + (cracks * 0.3))
 
     # Cap minimum values
-    labor_workers = max(2, labor_workers)
+    labor_workers = max(2, min(labor_workers, 10))
     days = max(1, days)
 
     # =========================
@@ -217,11 +225,31 @@ def predict():
 
     output_img = results[0].plot()
 
+    # =========================
+    # SAVE OUTPUT LOGIC (ADDED)
+    # =========================
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+
+    input_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_input.jpg")
+    output_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_output.jpg")
+    report_path = os.path.join(OUTPUT_FOLDER, f"{timestamp}_report.json")
+
+    # Save original image
+    cv2.imwrite(input_path, img)
+
+    # Save detected image
+    cv2.imwrite(output_path, output_img)
+
+    # Encode image for frontend
     _, buffer = cv2.imencode('.jpg', output_img)
     img_base64 = base64.b64encode(buffer).decode('utf-8')
 
     report = analyze(results, img.shape)
     report["image"] = img_base64
+
+    # Save JSON report
+    with open(report_path, "w") as f:
+        json.dump(report, f, indent=4)
 
     return jsonify(report)
 
