@@ -1,575 +1,421 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Road Damage Detection</title>
-    <style>
-        :root {
-            --primary: #00c6ff;
-            --secondary: #0072ff;
-            --accent: #ff6b6b;
-            --success: #4ecdc4;
-            --warning: #ffa726;
-            --danger: #ff5252;
-            --dark: #0f2027;
-            --light: #ffffff;
-            --glass: rgba(255, 255, 255, 0.1);
-            --shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            --border-radius: 15px;
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RoadGuard AI – Live Pothole & Crack Detection</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#080d1a;--panel:rgba(255,255,255,0.05);--border:rgba(255,255,255,0.1);
+  --blue:#00c6ff;--indigo:#7c3aed;--green:#10b981;--yellow:#f59e0b;--red:#ef4444;
+  --text:#e2e8f0;--muted:#94a3b8;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 80% 60% at 50% -20%,rgba(0,198,255,0.12),transparent),radial-gradient(ellipse 60% 40% at 90% 80%,rgba(124,58,237,0.1),transparent);pointer-events:none;z-index:0}
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+/* HEADER */
+header{position:relative;z-index:10;padding:20px 40px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);backdrop-filter:blur(20px)}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:42px;height:42px;background:linear-gradient(135deg,var(--blue),var(--indigo));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.logo-text{font-size:1.3rem;font-weight:800;background:linear-gradient(90deg,var(--blue),var(--indigo));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.logo-sub{font-size:.75rem;color:var(--muted);font-weight:400;display:block;margin-top:-4px}
+.model-badge{background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:var(--green);padding:6px 14px;border-radius:20px;font-size:.8rem;font-weight:600}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--dark), #2c5364, #203a43);
-            background-attachment: fixed;
-            color: var(--light);
-            min-height: 100vh;
-            overflow-x: hidden;
-            animation: bgShift 20s ease-in-out infinite alternate;
-        }
+/* TABS */
+.tabs{position:relative;z-index:10;display:flex;gap:8px;padding:24px 40px 0}
+.tab{padding:10px 24px;border-radius:10px 10px 0 0;border:1px solid var(--border);border-bottom:none;background:transparent;color:var(--muted);cursor:pointer;font-size:.9rem;font-weight:500;transition:all .3s;font-family:inherit}
+.tab.active{background:rgba(0,198,255,0.1);color:var(--blue);border-color:rgba(0,198,255,0.3)}
+.tab:hover:not(.active){color:var(--text)}
 
-        @keyframes bgShift {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 100% 50%; }
-        }
+/* MAIN */
+main{position:relative;z-index:10;padding:0 40px 40px}
+.tab-panel{display:none;animation:fadeUp .4s ease}
+.tab-panel.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
 
-        .container {
-            max-width: 880px;
-            margin: 0 auto;
-            padding: 60px 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 30px;
-            min-height: 100vh;
-        }
+/* WEBCAM PANEL */
+.webcam-grid{display:grid;grid-template-columns:1fr 340px;gap:24px;padding-top:24px}
+.cam-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;backdrop-filter:blur(20px)}
+.cam-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.cam-title{font-weight:600;font-size:.95rem;display:flex;align-items:center;gap:8px}
+.dot{width:8px;height:8px;border-radius:50%;background:#ef4444}
+.dot.live{background:var(--green);animation:pulse-dot 1.5s infinite}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}}
+.fps-badge{font-size:.75rem;color:var(--muted);background:rgba(255,255,255,.06);padding:3px 10px;border-radius:20px}
+.cam-body{position:relative;background:#000;aspect-ratio:16/9}
+.cam-body img{width:100%;height:100%;object-fit:cover;display:block}
+.cam-overlay{position:absolute;bottom:12px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap}
+.chip{padding:5px 12px;border-radius:20px;font-size:.78rem;font-weight:600;backdrop-filter:blur(10px)}
+.chip-pothole{background:rgba(239,68,68,.25);border:1px solid rgba(239,68,68,.5);color:#fca5a5}
+.chip-crack{background:rgba(245,158,11,.25);border:1px solid rgba(245,158,11,.5);color:#fcd34d}
+.chip-clear{background:rgba(16,185,129,.2);border:1px solid rgba(16,185,129,.4);color:#6ee7b7}
 
-        .upload-section,
-        .analysis-section {
-            width: 100%;
-            max-width: 780px;
-        }
+/* SIDE PANEL */
+.side-panel{display:flex;flex-direction:column;gap:16px;padding-top:0}
+.ctrl-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:20px;backdrop-filter:blur(20px)}
+.ctrl-title{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:14px;font-weight:600}
+.btn{width:100%;padding:12px;border-radius:10px;font-size:.9rem;font-weight:600;cursor:pointer;border:none;transition:all .25s;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px}
+.btn-start{background:linear-gradient(135deg,var(--green),#059669);color:#fff}
+.btn-start:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(16,185,129,.35)}
+.btn-stop{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#fca5a5;margin-top:8px}
+.btn-stop:hover{background:rgba(239,68,68,.25)}
+.btn-snapshot{background:linear-gradient(135deg,var(--blue),var(--indigo));color:#fff;margin-top:8px}
+.btn-snapshot:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,198,255,.3)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none !important;box-shadow:none !important}
 
-        .header {
-            text-align: center;
-            margin-bottom: 10px;
-            animation: fadeInUp 1s ease-out;
-        }
+/* STATS */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-box{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center}
+.stat-val{font-size:1.6rem;font-weight:800;line-height:1}
+.stat-lbl{font-size:.72rem;color:var(--muted);margin-top:4px;font-weight:500}
+.sev-none{color:var(--green)}.sev-low{color:var(--blue)}.sev-medium{color:var(--yellow)}.sev-high{color:var(--red)}
 
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+/* SNAPSHOT RESULT */
+.snap-result{display:none;background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;backdrop-filter:blur(20px)}
+.snap-result img{width:100%;border-radius:0;display:block}
+.snap-report{padding:16px}
+.snap-report h4{color:var(--blue);font-size:.9rem;font-weight:700;margin-bottom:10px}
+.snap-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.82rem}
+.snap-row:last-child{border:none}
+.snap-key{color:var(--muted)}
+.snap-val{font-weight:600}
 
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 10px;
-            text-shadow: 0 2px 10px rgba(0, 198, 255, 0.3);
-        }
+/* UPLOAD PANEL */
+.upload-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding-top:24px}
+.upload-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:28px;backdrop-filter:blur(20px)}
+.upload-card h3{font-size:1rem;font-weight:700;margin-bottom:20px;color:var(--blue)}
+.drop-zone{border:2px dashed rgba(0,198,255,.3);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .3s;position:relative;overflow:hidden}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--blue);background:rgba(0,198,255,.05)}
+.drop-icon{font-size:2.8rem;display:block;margin-bottom:12px}
+.drop-text{font-size:1rem;font-weight:500;margin-bottom:6px}
+.drop-sub{font-size:.8rem;color:var(--muted)}
+#imageInput{display:none}
+.upload-actions{display:flex;gap:10px;margin-top:16px}
+.upload-actions .btn{flex:1}
+.btn-analyze{background:linear-gradient(135deg,var(--blue),var(--indigo));color:#fff}
+.btn-analyze:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,198,255,.3)}
+.btn-clear{background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted)}
+.btn-clear:hover{background:rgba(255,255,255,.1);color:var(--text)}
 
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            animation: fadeIn 1.5s ease-out 0.5s both;
-        }
+/* RESULT CARD */
+.result-card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;backdrop-filter:blur(20px);display:none}
+.result-img-wrap{background:#000;line-height:0}
+.result-img-wrap img{width:100%;max-height:360px;object-fit:contain}
+.result-report{padding:20px}
+.result-report h3{font-size:1rem;font-weight:700;margin-bottom:14px}
+.report-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.85rem}
+.report-row:last-child{border:none}
+.report-key{color:var(--muted)}
+.report-val{font-weight:600}
 
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
+/* LOADING */
+.overlay{position:fixed;inset:0;background:rgba(8,13,26,.85);backdrop-filter:blur(8px);display:none;place-items:center;z-index:100}
+.overlay.show{display:grid}
+.spin-wrap{text-align:center}
+.spinner{width:56px;height:56px;border:4px solid rgba(255,255,255,.1);border-top-color:var(--blue);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner-text{font-size:1rem;font-weight:500;color:var(--muted)}
 
-        .upload-section {
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: var(--border-radius);
-            padding: 30px;
-            box-shadow: var(--shadow);
-            transition: var(--transition);
-            animation: slideInLeft 1s ease-out 0.2s both;
-        }
-
-        @keyframes slideInLeft {
-            from {
-                opacity: 0;
-                transform: translateX(-50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .upload-section:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
-        }
-
-        .upload-area {
-            border: 2px dashed rgba(255, 255, 255, 0.5);
-            border-radius: var(--border-radius);
-            padding: 40px 20px;
-            text-align: center;
-            transition: var(--transition);
-            cursor: pointer;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .upload-area::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(0, 198, 255, 0.1), transparent);
-            transition: left 0.5s;
-        }
-
-        .upload-area:hover::before {
-            left: 100%;
-        }
-
-        .upload-area:hover {
-            border-color: var(--primary);
-            background: rgba(0, 198, 255, 0.05);
-        }
-
-        .upload-area.dragover {
-            border-color: var(--primary);
-            background: rgba(0, 198, 255, 0.1);
-            transform: scale(1.02);
-        }
-
-        .upload-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            display: block;
-        }
-
-        .upload-text {
-            font-size: 1.2rem;
-            margin-bottom: 10px;
-            font-weight: 500;
-        }
-
-        .upload-subtext {
-            font-size: 0.9rem;
-            opacity: 0.7;
-        }
-
-        #imageInput {
-            display: none;
-        }
-
-        .analyze-btn {
-            background: linear-gradient(45deg, var(--primary), var(--secondary));
-            color: var(--light);
-            border: none;
-            padding: 15px 30px;
-            border-radius: 50px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition);
-            box-shadow: 0 4px 15px rgba(0, 198, 255, 0.3);
-            margin-top: 20px;
-            width: 100%;
-            max-width: 200px;
-        }
-
-        .analyze-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 198, 255, 0.5);
-        }
-
-        .analyze-btn:active {
-            transform: translateY(0);
-        }
-
-        .analyze-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .analysis-section {
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: var(--border-radius);
-            padding: 30px;
-            box-shadow: var(--shadow);
-            animation: slideInRight 1s ease-out 0.4s both;
-        }
-
-        @keyframes slideInRight {
-            from {
-                opacity: 0;
-                transform: translateX(50px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        .result-image {
-            max-width: 100%;
-            height: auto;
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow);
-            margin-bottom: 20px;
-            transition: var(--transition);
-        }
-
-        .result-image:hover {
-            transform: scale(1.02);
-        }
-
-        .report {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: var(--border-radius);
-            padding: 20px;
-            margin-top: 20px;
-            animation: fadeIn 1s ease-out 0.6s both;
-        }
-
-        .report h3 {
-            color: var(--primary);
-            margin-bottom: 15px;
-            font-size: 1.5rem;
-        }
-
-        .report p {
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .report strong {
-            color: var(--success);
-        }
-
-        .severity-low { color: var(--success); }
-        .severity-medium { color: var(--warning); }
-        .severity-high { color: var(--danger); }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(15, 32, 39, 0.9);
-            backdrop-filter: blur(10px);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .loading-content {
-            text-align: center;
-            color: var(--light);
-        }
-
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 20px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--primary), var(--secondary));
-            width: 0%;
-            animation: progress 3s ease-out forwards;
-        }
-
-        @keyframes progress {
-            0% { width: 0%; }
-            70% { width: 90%; }
-            100% { width: 100%; }
-        }
-
-        .loading-text {
-            font-size: 1.2rem;
-            font-weight: 500;
-        }
-
-        .pulse {
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        @media (max-width: 768px) {
-            .container {
-                padding: 40px 16px;
-                gap: 24px;
-            }
-
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .upload-section, .analysis-section {
-                padding: 20px;
-            }
-
-            .upload-area {
-                padding: 30px 15px;
-            }
-
-            .analyze-btn {
-                padding: 12px 25px;
-                font-size: 1rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .header h1 {
-                font-size: 1.8rem;
-            }
-
-            .upload-text {
-                font-size: 1rem;
-            }
-
-            .report p {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 5px;
-            }
-        }
-    </style>
+@media(max-width:900px){
+  .webcam-grid,.upload-grid{grid-template-columns:1fr}
+  header{padding:16px 20px}
+  .tabs,.main{padding-left:20px;padding-right:20px}
+  main{padding:0 20px 32px}
+}
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>AI Road Damage Detection</h1>
-            <p>Advanced real-time analysis powered by YOLOv8</p>
-        </div>
 
-        <div class="upload-section">
-            <div class="upload-area" id="uploadArea" onclick="document.getElementById('imageInput').click()">
-                <span class="upload-icon">📷</span>
-                <div class="upload-text">Drop your road image here or click to browse</div>
-                <div class="upload-subtext">Supported formats: JPG, PNG, JPEG</div>
-            </div>
-            <input type="file" id="imageInput" accept="image/*">
-            <button class="analyze-btn" id="analyzeBtn" onclick="uploadImage()">🚀 Analyze Road</button>
-        </div>
-
-        <div class="analysis-section">
-            <img id="output" class="result-image" style="display: none;" alt="Analysis Result">
-            <div class="report" id="report" style="display: none;"></div>
-        </div>
+<header>
+  <div class="logo">
+    <div class="logo-icon">🛣️</div>
+    <div>
+      <span class="logo-text">RoadGuard AI</span>
+      <span class="logo-sub">Pothole & Crack Detection System</span>
     </div>
+  </div>
+  <span class="model-badge">✅ YOLOv8 Model Loaded</span>
+</header>
 
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-content">
-            <div class="spinner"></div>
-            <div class="progress-bar">
-                <div class="progress-fill"></div>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('webcam',this)" id="tab-webcam">📷 Live Webcam</button>
+  <button class="tab" onclick="switchTab('upload',this)" id="tab-upload">🖼️ Upload Image</button>
+</div>
+
+<main>
+  <!-- WEBCAM TAB -->
+  <div class="tab-panel active" id="panel-webcam">
+    <div class="webcam-grid">
+      <div>
+        <div class="cam-card">
+          <div class="cam-header">
+            <span class="cam-title"><span class="dot" id="camDot"></span> Live Detection Feed</span>
+            <span class="fps-badge" id="fpsBadge">-- FPS</span>
+          </div>
+          <div class="cam-body">
+            <img id="videoFeed" src="/video_feed" alt="Live Feed">
+            <div class="cam-overlay" id="camOverlay" style="display:none">
+              <span class="chip chip-pothole" id="liveChipPothole">🕳️ 0 Pothole</span>
+              <span class="chip chip-crack" id="liveChipCrack">🔩 0 Crack</span>
             </div>
-            <div class="loading-text pulse">AI Analyzing Road Damage...</div>
+          </div>
         </div>
+      </div>
+
+      <div class="side-panel">
+        <div class="ctrl-card">
+          <div class="ctrl-title">Camera Controls</div>
+          <button class="btn btn-start" id="btnStart" onclick="startCam()">▶ Start Camera</button>
+          <button class="btn btn-stop" id="btnStop" onclick="stopCam()" disabled>⏹ Stop Camera</button>
+          <button class="btn btn-snapshot" id="btnSnap" onclick="takeSnapshot()" disabled>📸 Capture & Analyze</button>
+        </div>
+
+        <div class="ctrl-card">
+          <div class="ctrl-title">Live Stats</div>
+          <div class="stat-grid">
+            <div class="stat-box">
+              <div class="stat-val" id="statPot" style="color:var(--red)">0</div>
+              <div class="stat-lbl">Potholes</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="statCrk" style="color:var(--yellow)">0</div>
+              <div class="stat-lbl">Cracks</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val sev-none" id="statSev">—</div>
+              <div class="stat-lbl">Severity</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-val" id="statDmg" style="color:var(--blue)">0%</div>
+              <div class="stat-lbl">Damage %</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="snap-result" id="snapResult">
+          <img id="snapImg" src="" alt="Snapshot">
+          <div class="snap-report">
+            <h4>📊 Snapshot Analysis</h4>
+            <div id="snapRows"></div>
+          </div>
+        </div>
+      </div>
     </div>
+  </div>
 
-    <script>
-        // Enhanced drag and drop functionality
-        const uploadArea = document.getElementById('uploadArea');
-        const imageInput = document.getElementById('imageInput');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-        const outputImg = document.getElementById('output');
-        const reportDiv = document.getElementById('report');
+  <!-- UPLOAD TAB -->
+  <div class="tab-panel" id="panel-upload">
+    <div class="upload-grid">
+      <div>
+        <div class="upload-card">
+          <h3>Upload Road Image</h3>
+          <div class="drop-zone" id="dropZone" onclick="document.getElementById('imageInput').click()">
+            <span class="drop-icon">📂</span>
+            <div class="drop-text">Drop image here or click to browse</div>
+            <div class="drop-sub">JPG, PNG, JPEG supported</div>
+          </div>
+          <input type="file" id="imageInput" accept="image/*">
+          <div class="upload-actions">
+            <button class="btn btn-analyze" onclick="analyzeImage()">🔍 Analyze</button>
+            <button class="btn btn-clear" onclick="clearUpload()">✕ Clear</button>
+          </div>
+        </div>
+      </div>
 
-        // Drag and drop events
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, preventDefaults, false);
-        });
+      <div>
+        <div class="result-card" id="resultCard">
+          <div class="result-img-wrap">
+            <img id="resultImg" src="" alt="Detection Result">
+          </div>
+          <div class="result-report">
+            <h3 id="resultTitle">Analysis Report</h3>
+            <div id="reportRows"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
 
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+<div class="overlay" id="overlay">
+  <div class="spin-wrap">
+    <div class="spinner"></div>
+    <div class="spinner-text" id="overlayText">Analyzing...</div>
+  </div>
+</div>
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, highlight, false);
-        });
+<script>
+// ── TAB SWITCHING ──
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  el.classList.add('active');
+}
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, unhighlight, false);
-        });
+// ── WEBCAM ──
+let statsInterval = null;
+let camRunning = false;
 
-        function highlight(e) {
-            uploadArea.classList.add('dragover');
-        }
+async function startCam() {
+  document.getElementById('btnStart').disabled = true;
+  showOverlay('Starting camera...');
+  try {
+    const r = await fetch('/webcam/start', {method:'POST'});
+    const d = await r.json();
+    hideOverlay();
+    if (d.status === 'started') {
+      camRunning = true;
+      document.getElementById('camDot').classList.add('live');
+      document.getElementById('btnStop').disabled = false;
+      document.getElementById('btnSnap').disabled = false;
+      document.getElementById('btnStart').disabled = true;
+      document.getElementById('camOverlay').style.display = 'flex';
+      document.getElementById('videoFeed').src = '/video_feed?' + Date.now();
+      statsInterval = setInterval(fetchStats, 1000);
+    } else {
+      alert('❌ ' + d.message);
+      document.getElementById('btnStart').disabled = false;
+    }
+  } catch(e) {
+    hideOverlay();
+    alert('Cannot reach server. Is Flask running?');
+    document.getElementById('btnStart').disabled = false;
+  }
+}
 
-        function unhighlight(e) {
-            uploadArea.classList.remove('dragover');
-        }
+async function stopCam() {
+  clearInterval(statsInterval);
+  await fetch('/webcam/stop', {method:'POST'});
+  camRunning = false;
+  document.getElementById('camDot').classList.remove('live');
+  document.getElementById('btnStop').disabled = true;
+  document.getElementById('btnSnap').disabled = true;
+  document.getElementById('btnStart').disabled = false;
+  document.getElementById('camOverlay').style.display = 'none';
+  document.getElementById('fpsBadge').textContent = '-- FPS';
+  ['statPot','statCrk'].forEach(id => document.getElementById(id).textContent = '0');
+  document.getElementById('statSev').textContent = '—';
+  document.getElementById('statDmg').textContent = '0%';
+}
 
-        uploadArea.addEventListener('drop', handleDrop, false);
+async function fetchStats() {
+  try {
+    const r = await fetch('/webcam/status');
+    const d = await r.json();
+    document.getElementById('fpsBadge').textContent = d.fps + ' FPS';
+    document.getElementById('statPot').textContent = d.potholes;
+    document.getElementById('statCrk').textContent = d.cracks;
+    document.getElementById('liveChipPothole').textContent = '🕳️ ' + d.potholes + ' Pothole';
+    document.getElementById('liveChipCrack').textContent = '🔩 ' + d.cracks + ' Crack';
 
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFiles(files);
-        }
+    const sevEl = document.getElementById('statSev');
+    sevEl.textContent = d.severity;
+    sevEl.className = 'stat-val sev-' + (d.severity || 'none').toLowerCase();
+    document.getElementById('statDmg').textContent = d.damage_percentage + '%';
+  } catch(e) {}
+}
 
-        function handleFiles(files) {
-            if (files.length > 0) {
-                imageInput.files = files;
-                uploadArea.innerHTML = `
-                    <span class="upload-icon">✅</span>
-                    <div class="upload-text">${files[0].name}</div>
-                    <div class="upload-subtext">File selected successfully</div>
-                `;
-            }
-        }
+async function takeSnapshot() {
+  showOverlay('Capturing & analyzing...');
+  document.getElementById('btnSnap').disabled = true;
+  try {
+    const r = await fetch('/webcam/snapshot', {method:'POST'});
+    const d = await r.json();
+    hideOverlay();
+    document.getElementById('btnSnap').disabled = false;
+    if (d.error) { alert('❌ ' + d.error); return; }
 
-        // Enhanced upload function
-        async function uploadImage() {
-            const file = imageInput.files[0];
+    document.getElementById('snapImg').src = 'data:image/jpeg;base64,' + d.image;
+    const rows = buildReportRows(d);
+    document.getElementById('snapRows').innerHTML = rows;
+    document.getElementById('snapResult').style.display = 'block';
+    document.getElementById('snapResult').scrollIntoView({behavior:'smooth'});
+  } catch(e) {
+    hideOverlay();
+    document.getElementById('btnSnap').disabled = false;
+    alert('Snapshot failed. Try again.');
+  }
+}
 
-            if (!file) {
-                alert("Please select an image first!");
-                return;
-            }
+// ── UPLOAD ──
+const dropZone = document.getElementById('dropZone');
+const imageInput = document.getElementById('imageInput');
 
-            // Show loading overlay
-            loadingOverlay.style.display = 'flex';
-            analyzeBtn.disabled = true;
-            analyzeBtn.textContent = 'Analyzing...';
+['dragenter','dragover'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drag'); }));
+['dragleave','drop'].forEach(ev => dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drag'); }));
+dropZone.addEventListener('drop', e => {
+  const f = e.dataTransfer.files;
+  if (f.length) setFile(f[0]);
+});
+imageInput.addEventListener('change', e => { if (e.target.files[0]) setFile(e.target.files[0]); });
 
-            // Reset previous results
-            outputImg.style.display = 'none';
-            reportDiv.style.display = 'none';
+function setFile(file) {
+  dropZone.innerHTML = '<span class="drop-icon">✅</span><div class="drop-text">' + file.name + '</div><div class="drop-sub">Ready to analyze</div>';
+}
 
-            try {
-                const formData = new FormData();
-                formData.append("image", file);
+async function analyzeImage() {
+  const file = imageInput.files[0];
+  if (!file) { alert('Please select an image first!'); return; }
+  showOverlay('Running AI Detection...');
+  try {
+    const fd = new FormData();
+    fd.append('image', file);
+    const r = await fetch('/predict', {method:'POST', body:fd});
+    const d = await r.json();
+    hideOverlay();
+    if (d.error) { alert('❌ ' + d.error); return; }
 
-                const res = await fetch("/predict", {
-                    method: "POST",
-                    body: formData
-                });
+    document.getElementById('resultImg').src = 'data:image/jpeg;base64,' + d.image;
+    document.getElementById('resultTitle').textContent = d.potholes === 0 && d.cracks === 0 ? '✅ No Damage Detected' : '🚨 Road Damage Report';
+    document.getElementById('reportRows').innerHTML = buildReportRows(d);
+    const rc = document.getElementById('resultCard');
+    rc.style.display = 'block';
+    rc.scrollIntoView({behavior:'smooth'});
+  } catch(e) {
+    hideOverlay();
+    alert('Analysis failed. Is the server running?');
+  }
+}
 
-                const data = await res.json();
+function clearUpload() {
+  imageInput.value = '';
+  dropZone.innerHTML = '<span class="drop-icon">📂</span><div class="drop-text">Drop image here or click to browse</div><div class="drop-sub">JPG, PNG, JPEG supported</div>';
+  document.getElementById('resultCard').style.display = 'none';
+}
 
-                // Hide loading
-                loadingOverlay.style.display = 'none';
-                analyzeBtn.disabled = false;
-                analyzeBtn.textContent = '🚀 Analyze Road';
+function buildReportRows(d) {
+  const rows = [
+    ['Damage Types', d.damage_types || 'None'],
+    ['Potholes', d.potholes],
+    ['Cracks', d.cracks],
+    ['Damage %', (d.damage_percentage || 0) + '%'],
+    ['Severity', d.severity],
+    ['Risk Level', d.risk || '—'],
+    ['Labor', (d.labor || 0) + ' workers'],
+    ['Time', (d.days || 0) + ' days'],
+    ['Material Cost', '₹' + (d.material_cost || 0)],
+    ['Total Cost', '₹' + (d.total_cost || 0)],
+    ['Machine', d.machine || 'No'],
+    ['Decision', d.decision || '—'],
+  ];
+  const sevColors = {Low:'var(--blue)',Medium:'var(--yellow)',High:'var(--red)',None:'var(--green)'};
+  return rows.map(([k,v]) => {
+    const color = k === 'Severity' ? (sevColors[v] || 'var(--text)') : 'var(--text)';
+    const cls = k === 'Potholes' ? 'style="color:var(--red)"' : k === 'Cracks' ? 'style="color:var(--yellow)"' : '';
+    return `<div class="snap-row report-row"><span class="snap-key report-key">${k}</span><span class="snap-val report-val" style="color:${color}" ${cls}>${v}</span></div>`;
+  }).join('');
+}
 
-                // Show results with animation
-                outputImg.src = "data:image/jpeg;base64," + data.image;
-                outputImg.style.display = 'block';
-                outputImg.style.animation = 'fadeIn 0.5s ease-out';
-
-                reportDiv.style.display = 'block';
-                reportDiv.style.animation = 'fadeIn 0.5s ease-out 0.2s both';
-
-                // Enhanced report display
-                if (data.potholes == 0 && data.cracks == 0) {
-                    reportDiv.innerHTML = `
-                        <h3>✅ No Damage Detected</h3>
-                        <p><strong>Severity:</strong> <span class="severity-low">Low</span></p>
-                        <p><strong>Risk Level:</strong> Low</p>
-                        <p><strong>Estimated Cost:</strong> ₹0</p>
-                        <p><strong>Labor Required:</strong> 0</p>
-                        <p><strong>Time Required:</strong> 0 days</p>
-                        <p><strong>Machine Required:</strong> No</p>
-                        <p><strong>Machine Type:</strong> N/A</p>
-                        <p><strong>Final Decision:</strong> No urgent repair</p>
-                    `;
-                } else {
-                    const severityClass = `severity-${data.severity.toLowerCase()}`;
-                    reportDiv.innerHTML = `
-                        <h3>🚨 Road Damage Report</h3>
-                        <p><strong>Damage Type:</strong> ${data.damage_types}</p>
-                        <p><strong>Potholes:</strong> ${data.potholes}</p>
-                        <p><strong>Cracks:</strong> ${data.cracks}</p>
-                        <p><strong>Damage Percentage:</strong> ${data.damage_percentage}%</p>
-                        <p><strong>Severity:</strong> <span class="${severityClass}">${data.severity}</span></p>
-                        <p><strong>Risk Level:</strong> ${data.risk}</p>
-                        <p><strong>Labor Required:</strong> ${data.labor} workers</p>
-                        <p><strong>Time Required:</strong> ${data.days} days</p>
-                        <p><strong>Material Cost:</strong> ₹${data.material_cost}</p>
-                        <p><strong>Total Cost:</strong> ₹${data.total_cost}</p>
-                        <p><strong>Machine Required:</strong> ${data.machine}</p>
-                        <p><strong>Machine Type:</strong> ${data.machine_type}</p>
-                        <p><strong>Final Decision:</strong> ${data.decision}</p>
-                    `;
-                }
-            } catch (error) {
-                loadingOverlay.style.display = 'none';
-                analyzeBtn.disabled = false;
-                analyzeBtn.textContent = '🚀 Analyze Road';
-                alert('Error analyzing image. Please try again.');
-                console.error('Upload error:', error);
-            }
-        }
-
-        // File input change handler
-        imageInput.addEventListener('change', function(e) {
-            if (e.target.files.length > 0) {
-                uploadArea.innerHTML = `
-                    <span class="upload-icon">✅</span>
-                    <div class="upload-text">${e.target.files[0].name}</div>
-                    <div class="upload-subtext">File selected successfully</div>
-                `;
-            }
-        });
-    </script>
+function showOverlay(msg) {
+  document.getElementById('overlayText').textContent = msg;
+  document.getElementById('overlay').classList.add('show');
+}
+function hideOverlay() {
+  document.getElementById('overlay').classList.remove('show');
+}
+</script>
 </body>
 </html>

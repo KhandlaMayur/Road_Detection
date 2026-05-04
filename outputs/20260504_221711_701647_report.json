@@ -1,0 +1,15 @@
+{
+    "potholes": 4,
+    "cracks": 1,
+    "damage_types": "Pothole, Crack",
+    "damage_percentage": 28.96,
+    "severity": "High",
+    "risk": "High",
+    "labor": 4,
+    "days": 4,
+    "material_cost": 5931,
+    "total_cost": 10731,
+    "machine": "Yes",
+    "machine_type": "Asphalt Paver + Roller + Compactor",
+    "decision": "Immediate repair required"
+}
