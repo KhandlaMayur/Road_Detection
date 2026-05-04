@@ -226,9 +226,9 @@ def predict():
         
         print(f"[DEBUG] Image shape: {img.shape}")
 
-        # Run model inference
-        print("[DEBUG] Running model inference...")
-        results = model(img)
+        # Run model inference on CPU and disable fuse to avoid Render memory issues
+        print("[DEBUG] Running model inference... (cpu, fuse=False)")
+        results = model(img, device="cpu", fuse=False, verbose=False)
         print("[DEBUG] Model inference completed")
 
         output_img = results[0].plot()
