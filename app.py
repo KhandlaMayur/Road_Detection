@@ -391,7 +391,7 @@ def predict():
 
         if img is None:
             return jsonify({"error": "Failed to decode image. Invalid format."}), 400
-
+        # Run model inference
         results = model(img, verbose=False)
         output_img = results[0].plot()
 
