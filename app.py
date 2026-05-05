@@ -156,8 +156,8 @@ def process_frame():
         if frame is None:
             return jsonify({"error": "Failed to decode image."}), 400
 
-        # Run model inference
-        results = model(frame, verbose=False, conf=0.35)
+        # Run model inference (limit size to 320 for speed on cloud)
+        results = model(frame, imgsz=320, verbose=False, conf=0.35)
         output_img = results[0].plot()
 
         # Compute stats
