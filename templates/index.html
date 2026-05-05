@@ -347,7 +347,8 @@ async function startCam() {
     document.getElementById('localVideo').style.display = 'block';
     // Hide annotated img until first server result arrives
     document.getElementById('videoFeed').style.display = 'none';
-    captureInterval = setInterval(processFrame, 150);
+    document.getElementById('fpsBadge').textContent = 'Connecting to server...';
+    captureInterval = setInterval(processFrame, 3000); // 1 frame per 3s for cloud server
   } catch(e) {
     hideOverlay();
     alert('Could not access camera. Make sure you opened the app on HTTPS and allowed camera permission.\n\nError: ' + e.message);
@@ -366,8 +367,8 @@ async function processFrame() {
   const canvas = document.getElementById('captureCanvas');
   const ctx = canvas.getContext('2d');
   // Optional: resize to 640x480 if video is larger to save network bandwidth
-  canvas.width = 640;
-  canvas.height = 480;
+  canvas.width = 320;  // smaller = faster server processing
+  canvas.height = 240;
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
   
   const base64Img = canvas.toDataURL('image/jpeg', 0.6); // compress for speed
@@ -391,16 +392,16 @@ async function processFrame() {
         // Save for snapshot
         latestSnapshot = d;
         
-        // Calculate FPS
+        // Show frame timing
         frameCount++;
         const elapsed = (Date.now() - startTime) / 1000;
-        if (elapsed > 0) {
-            document.getElementById('fpsBadge').textContent = (frameCount / elapsed).toFixed(1) + ' FPS';
-        }
+        const fps = elapsed > 0 ? (frameCount / elapsed).toFixed(1) : '?';
+        document.getElementById('fpsBadge').textContent = fps + ' FPS (AI Active)';
       }
     }
   } catch(e) {
     console.error("Frame processing error:", e);
+    document.getElementById('fpsBadge').textContent = 'Server error - retrying...';
   } finally {
     isProcessing = false;
   }
@@ -490,7 +491,7 @@ async function analyzeImage() {
     rc.scrollIntoView({behavior:'smooth'});
   } catch(e) {
     hideOverlay();
-    alert('Analysis failed. Is the server running?');
+    alert('Analysis failed. The server may be waking up (Render free tier sleeps). Please wait 30 seconds and try again.');
   }
 }
 
