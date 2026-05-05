@@ -1,0 +1,20 @@
+# SSL certificates (local only)
+cert.pem
+key.pem
+
+# Temp/debug files
+*.txt
+patch_html.py
+
+# Outputs
+outputs/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Dataset (too large for git)
+dataset/

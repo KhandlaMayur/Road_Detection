@@ -1,7 +1,7 @@
 # =========================
 # IMPORT LIBRARIES
 # =========================
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import cv2
 import numpy as np
@@ -233,26 +233,32 @@ if __name__ == "__main__":
     except Exception:
         local_ip = "127.0.0.1"
 
-    # Auto-start ngrok tunnel for mobile HTTPS access
+    # Only start ngrok tunnel when running LOCALLY (not on Render/cloud)
+    is_render = os.environ.get("RENDER") is not None
     ngrok_url = None
-    try:
-        from pyngrok import ngrok as pyngrok
-        pyngrok.set_auth_token("3DI4n30ZY0OfJ5HKYcykE9uTyAd_6VF7YCj9mNQzT4NJUV6uf")
-        tunnel = pyngrok.connect(port, "http")
-        ngrok_url = tunnel.public_url.replace("http://", "https://")
-    except Exception as e:
-        print(f"  [ngrok] Could not auto-start: {e}")
+
+    if not is_render:
+        try:
+            from pyngrok import ngrok as pyngrok
+            pyngrok.set_auth_token("3DI4n30ZY0OfJ5HKYcykE9uTyAd_6VF7YCj9mNQzT4NJUV6uf")
+            tunnel = pyngrok.connect(port, "http")
+            ngrok_url = tunnel.public_url.replace("http://", "https://")
+        except Exception as e:
+            print(f"  [ngrok] Could not auto-start: {e}")
 
     print("\n" + "="*55)
     print("  RoadGuard AI - Pothole & Crack Detection")
     print("="*55)
-    print(f"  PC browser    ->  http://localhost:{port}")
-    if ngrok_url:
-        print(f"\n  MOBILE URL (open this on your phone):")
-        print(f"  >>> {ngrok_url} <<<")
-        print(f"  Works on any phone, any camera, any network!")
+    if is_render:
+        print("  Running on Render (HTTPS provided by Render)")
     else:
-        print(f"  For mobile: run 'ngrok http {port}' in another terminal")
+        print(f"  PC browser    ->  http://localhost:{port}")
+        if ngrok_url:
+            print(f"\n  MOBILE URL (open this on your phone):")
+            print(f"  >>> {ngrok_url} <<<")
+            print(f"  Works on any phone, any camera, any network!")
+        else:
+            print(f"  For mobile: run 'ngrok http {port}' in another terminal")
     print("="*55 + "\n")
 
     app.run(host="0.0.0.0", port=port, debug=False, threaded=True)
