@@ -44,8 +44,9 @@ main{position:relative;z-index:10;padding:0 40px 40px}
 .dot.live{background:var(--green);animation:pulse-dot 1.5s infinite}
 @keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5)}50%{box-shadow:0 0 0 6px rgba(16,185,129,0)}}
 .fps-badge{font-size:.75rem;color:var(--muted);background:rgba(255,255,255,.06);padding:3px 10px;border-radius:20px}
-.cam-body{position:relative;background:#000;aspect-ratio:16/9}
-.cam-body img{width:100%;height:100%;object-fit:cover;display:block}
+.cam-body{position:relative;background:#000;aspect-ratio:16/9;overflow:hidden}
+.cam-body video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:1}
+.cam-body img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;z-index:2}
 .cam-overlay{position:absolute;bottom:12px;left:12px;right:12px;display:flex;gap:8px;flex-wrap:wrap}
 .chip{padding:5px 12px;border-radius:20px;font-size:.78rem;font-weight:600;backdrop-filter:blur(10px)}
 .chip-pothole{background:rgba(239,68,68,.25);border:1px solid rgba(239,68,68,.5);color:#fca5a5}
@@ -342,6 +343,10 @@ async function startCam() {
     document.getElementById('btnScan').disabled = true;
     document.getElementById('camSelect').disabled = true;
     document.getElementById('camOverlay').style.display = 'flex';
+    // Show live video element immediately so user sees camera right away
+    document.getElementById('localVideo').style.display = 'block';
+    // Hide annotated img until first server result arrives
+    document.getElementById('videoFeed').style.display = 'none';
     captureInterval = setInterval(processFrame, 150);
   } catch(e) {
     hideOverlay();
@@ -377,7 +382,10 @@ async function processFrame() {
     if (r.ok) {
       const d = await r.json();
       if (!d.error && camRunning) {
-        document.getElementById('videoFeed').src = 'data:image/jpeg;base64,' + d.image;
+        const feed = document.getElementById('videoFeed');
+        feed.src = 'data:image/jpeg;base64,' + d.image;
+        // Show annotated overlay once first result arrives
+        if (feed.style.display === 'none') feed.style.display = 'block';
         updateStats(d.stats);
         
         // Save for snapshot
@@ -414,6 +422,8 @@ function stopCam() {
   document.getElementById('camOverlay').style.display = 'none';
   document.getElementById('fpsBadge').textContent = '-- FPS';
   document.getElementById('videoFeed').src = '';
+  document.getElementById('videoFeed').style.display = 'block';
+  document.getElementById('localVideo').style.display = 'none';
   ['statPot','statCrk'].forEach(id => document.getElementById(id).textContent = '0');
   document.getElementById('statSev').textContent = '—';
   document.getElementById('statDmg').textContent = '0%';
