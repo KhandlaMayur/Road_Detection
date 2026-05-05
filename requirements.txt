@@ -3,3 +3,8 @@ ultralytics
 opencv-python
 numpy
 gunicorn
+pyOpenSSL
+Werkzeug
+flask-cors
+cryptography
+
