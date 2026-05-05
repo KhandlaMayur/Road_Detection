@@ -124,6 +124,14 @@ main{position:relative;z-index:10;padding:0 40px 40px}
   .tabs,.main{padding-left:20px;padding-right:20px}
   main{padding:0 20px 32px}
 }
+/* CAMERA SELECTOR */
+.cam-select-wrap{margin-top:10px}
+.cam-select-label{font-size:.75rem;color:var(--muted);font-weight:600;margin-bottom:6px;display:block}
+.cam-select{width:100%;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;font-size:.82rem;font-family:inherit;cursor:pointer;outline:none}
+.cam-select:focus{border-color:var(--blue)}
+.btn-scan{background:rgba(0,198,255,.1);border:1px solid rgba(0,198,255,.3);color:var(--blue);margin-top:6px;font-size:.8rem;padding:8px}
+.btn-scan:hover{background:rgba(0,198,255,.2)}
+.cam-placeholder{width:100%;height:100%;object-fit:cover;display:flex;align-items:center;justify-content:center;background:#000;color:var(--muted);font-size:.9rem;text-align:center;padding:20px}
 </style>
 </head>
 <body>
@@ -155,7 +163,9 @@ main{position:relative;z-index:10;padding:0 40px 40px}
             <span class="fps-badge" id="fpsBadge">-- FPS</span>
           </div>
           <div class="cam-body">
-            <img id="videoFeed" src="/video_feed" alt="Live Feed">
+            <video id="localVideo" autoplay playsinline style="display:none;"></video>
+            <canvas id="captureCanvas" width="640" height="480" style="display:none;"></canvas>
+            <img id="videoFeed" src="" alt="Live Feed (Click Start)">
             <div class="cam-overlay" id="camOverlay" style="display:none">
               <span class="chip chip-pothole" id="liveChipPothole">🕳️ 0 Pothole</span>
               <span class="chip chip-crack" id="liveChipCrack">🔩 0 Crack</span>
@@ -167,7 +177,16 @@ main{position:relative;z-index:10;padding:0 40px 40px}
       <div class="side-panel">
         <div class="ctrl-card">
           <div class="ctrl-title">Camera Controls</div>
-          <button class="btn btn-start" id="btnStart" onclick="startCam()">▶ Start Camera</button>
+          <div class="cam-select-wrap">
+            <span class="cam-select-label">Select Camera</span>
+            <select class="cam-select" id="camSelect">
+              <option value="environment">Back Camera (Default)</option>
+              <option value="user">Front Camera (Selfie)</option>
+              <option value="any">Any Camera</option>
+            </select>
+            <button class="btn btn-scan" id="btnScan" onclick="scanCameras()">Detect All Cameras</button>
+          </div>
+          <button class="btn btn-start" id="btnStart" onclick="startCam()" style="margin-top:10px">▶ Start Camera</button>
           <button class="btn btn-stop" id="btnStop" onclick="stopCam()" disabled>⏹ Stop Camera</button>
           <button class="btn btn-snapshot" id="btnSnap" onclick="takeSnapshot()" disabled>📸 Capture & Analyze</button>
         </div>
@@ -256,56 +275,151 @@ function switchTab(name, el) {
 }
 
 // ── WEBCAM ──
-let statsInterval = null;
 let camRunning = false;
+let stream = null;
+let captureInterval = null;
+let isProcessing = false;
+let frameCount = 0;
+let startTime = 0;
+let latestSnapshot = null;
+
+// Scan and populate all available cameras in the dropdown
+async function scanCameras() {
+  try {
+    // Need a brief permission grant first so labels are visible
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true });
+    tmp.getTracks().forEach(t => t.stop());
+  } catch(e) {}
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const videoDevices = devices.filter(d => d.kind === 'videoinput');
+  const sel = document.getElementById('camSelect');
+
+  // Keep the generic options, append real devices after
+  sel.innerHTML = `
+    <option value="environment">Back Camera (Default)</option>
+    <option value="user">Front Camera (Selfie)</option>
+    <option value="any">Any Camera</option>
+    <option disabled>── Detected Cameras ──</option>
+  `;
+  videoDevices.forEach((dev, i) => {
+    const opt = document.createElement('option');
+    opt.value = 'device:' + dev.deviceId;
+    opt.textContent = dev.label || `Camera ${i + 1}`;
+    sel.appendChild(opt);
+  });
+  alert(`Found ${videoDevices.length} camera(s). Select from the dropdown.`);
+}
 
 async function startCam() {
   document.getElementById('btnStart').disabled = true;
   showOverlay('Starting camera...');
+  const selVal = document.getElementById('camSelect').value;
+  let constraints;
+  if (selVal.startsWith('device:')) {
+    constraints = { video: { deviceId: { exact: selVal.replace('device:', '') }, width:{ideal:640}, height:{ideal:480} } };
+  } else if (selVal === 'user') {
+    constraints = { video: { facingMode: 'user', width:{ideal:640}, height:{ideal:480} } };
+  } else if (selVal === 'any') {
+    constraints = { video: { width:{ideal:640}, height:{ideal:480} } };
+  } else {
+    // environment / back camera
+    constraints = { video: { facingMode: { ideal: 'environment' }, width:{ideal:640}, height:{ideal:480} } };
+  }
   try {
-    const r = await fetch('/webcam/start', {method:'POST'});
-    const d = await r.json();
+    stream = await navigator.mediaDevices.getUserMedia(constraints);
+    const video = document.getElementById('localVideo');
+    video.srcObject = stream;
+    await video.play();
     hideOverlay();
-    if (d.status === 'started') {
-      camRunning = true;
-      document.getElementById('camDot').classList.add('live');
-      document.getElementById('btnStop').disabled = false;
-      document.getElementById('btnSnap').disabled = false;
-      document.getElementById('btnStart').disabled = true;
-      document.getElementById('camOverlay').style.display = 'flex';
-      document.getElementById('videoFeed').src = '/video_feed?' + Date.now();
-      statsInterval = setInterval(fetchStats, 1000);
-    } else {
-      alert('❌ ' + d.message);
-      document.getElementById('btnStart').disabled = false;
-    }
+    camRunning = true;
+    startTime = Date.now();
+    frameCount = 0;
+    document.getElementById('camDot').classList.add('live');
+    document.getElementById('btnStop').disabled = false;
+    document.getElementById('btnSnap').disabled = false;
+    document.getElementById('btnStart').disabled = true;
+    document.getElementById('btnScan').disabled = true;
+    document.getElementById('camSelect').disabled = true;
+    document.getElementById('camOverlay').style.display = 'flex';
+    captureInterval = setInterval(processFrame, 150);
   } catch(e) {
     hideOverlay();
-    alert('Cannot reach server. Is Flask running?');
+    alert('Could not access camera. Make sure you opened the app on HTTPS and allowed camera permission.\n\nError: ' + e.message);
     document.getElementById('btnStart').disabled = false;
   }
 }
 
-async function stopCam() {
-  clearInterval(statsInterval);
-  await fetch('/webcam/stop', {method:'POST'});
+async function processFrame() {
+  if (!camRunning || isProcessing) return;
+  
+  const video = document.getElementById('localVideo');
+  if (video.videoWidth === 0) return;
+
+  isProcessing = true;
+  
+  const canvas = document.getElementById('captureCanvas');
+  const ctx = canvas.getContext('2d');
+  // Optional: resize to 640x480 if video is larger to save network bandwidth
+  canvas.width = 640;
+  canvas.height = 480;
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  
+  const base64Img = canvas.toDataURL('image/jpeg', 0.6); // compress for speed
+  
+  try {
+    const r = await fetch('/process_frame', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: base64Img })
+    });
+    
+    if (r.ok) {
+      const d = await r.json();
+      if (!d.error && camRunning) {
+        document.getElementById('videoFeed').src = 'data:image/jpeg;base64,' + d.image;
+        updateStats(d.stats);
+        
+        // Save for snapshot
+        latestSnapshot = d;
+        
+        // Calculate FPS
+        frameCount++;
+        const elapsed = (Date.now() - startTime) / 1000;
+        if (elapsed > 0) {
+            document.getElementById('fpsBadge').textContent = (frameCount / elapsed).toFixed(1) + ' FPS';
+        }
+      }
+    }
+  } catch(e) {
+    console.error("Frame processing error:", e);
+  } finally {
+    isProcessing = false;
+  }
+}
+
+function stopCam() {
   camRunning = false;
+  clearInterval(captureInterval);
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop());
+    stream = null;
+  }
   document.getElementById('camDot').classList.remove('live');
   document.getElementById('btnStop').disabled = true;
   document.getElementById('btnSnap').disabled = true;
   document.getElementById('btnStart').disabled = false;
+  document.getElementById('btnScan').disabled = false;
+  document.getElementById('camSelect').disabled = false;
   document.getElementById('camOverlay').style.display = 'none';
   document.getElementById('fpsBadge').textContent = '-- FPS';
+  document.getElementById('videoFeed').src = '';
   ['statPot','statCrk'].forEach(id => document.getElementById(id).textContent = '0');
   document.getElementById('statSev').textContent = '—';
   document.getElementById('statDmg').textContent = '0%';
 }
 
-async function fetchStats() {
-  try {
-    const r = await fetch('/webcam/status');
-    const d = await r.json();
-    document.getElementById('fpsBadge').textContent = d.fps + ' FPS';
+function updateStats(d) {
     document.getElementById('statPot').textContent = d.potholes;
     document.getElementById('statCrk').textContent = d.cracks;
     document.getElementById('liveChipPothole').textContent = '🕳️ ' + d.potholes + ' Pothole';
@@ -315,29 +429,19 @@ async function fetchStats() {
     sevEl.textContent = d.severity;
     sevEl.className = 'stat-val sev-' + (d.severity || 'none').toLowerCase();
     document.getElementById('statDmg').textContent = d.damage_percentage + '%';
-  } catch(e) {}
 }
 
-async function takeSnapshot() {
-  showOverlay('Capturing & analyzing...');
-  document.getElementById('btnSnap').disabled = true;
-  try {
-    const r = await fetch('/webcam/snapshot', {method:'POST'});
-    const d = await r.json();
-    hideOverlay();
-    document.getElementById('btnSnap').disabled = false;
-    if (d.error) { alert('❌ ' + d.error); return; }
-
-    document.getElementById('snapImg').src = 'data:image/jpeg;base64,' + d.image;
-    const rows = buildReportRows(d);
-    document.getElementById('snapRows').innerHTML = rows;
-    document.getElementById('snapResult').style.display = 'block';
-    document.getElementById('snapResult').scrollIntoView({behavior:'smooth'});
-  } catch(e) {
-    hideOverlay();
-    document.getElementById('btnSnap').disabled = false;
-    alert('Snapshot failed. Try again.');
+function takeSnapshot() {
+  if (!latestSnapshot) {
+    alert("No frame available yet.");
+    return;
   }
+  const d = latestSnapshot;
+  document.getElementById('snapImg').src = 'data:image/jpeg;base64,' + d.image;
+  const rows = buildReportRows(d.stats);
+  document.getElementById('snapRows').innerHTML = rows;
+  document.getElementById('snapResult').style.display = 'block';
+  document.getElementById('snapResult').scrollIntoView({behavior:'smooth'});
 }
 
 // ── UPLOAD ──
